@@ -1,32 +1,32 @@
 const 	AWS        = require('aws-sdk'),
-		fs         = require('fs'),
-		isAnimated = require('animated-gif-detector');
+    fs         = require('fs'),
+    isAnimated = require('animated-gif-detector');
 
 // We need to setup AWS configuration before instantiating an S3 object
 let configPath = '';
 let configPaths = [
-	'./local-config.json', // Settings for local version
-	'./config.json'        // Settings for AWS Lambda
+    './local-config.json', // Settings for local version
+    './config.json'        // Settings for AWS Lambda
 ];
 for ( var i = 0; i < configPaths.length; i++ ) {
-	var path = configPaths[ i ];
-	if ( fs.existsSync( path ) ) {
-		configPath = path;
-		break;
-	}
+    var path = configPaths[ i ];
+    if ( fs.existsSync( path ) ) {
+        configPath = path;
+        break;
+    }
 }
 
 let config = {};
 if ( configPath ) {
-	config = JSON.parse( fs.readFileSync( configPath ) );
-	AWS.config.loadFromPath( configPath );
+    config = JSON.parse( fs.readFileSync( configPath ) );
+    AWS.config.loadFromPath( configPath );
 }
 
 const	S3 = new AWS.S3({
-			signatureVersion: 'v4',
-		}),
-		Sharp = require('sharp'),
-		Helpers = require( './helpers' );
+        signatureVersion: 'v4',
+    }),
+    Sharp = require('sharp'),
+    Helpers = require( './helpers' );
 
 /**
  * For use in referncing functions from this file
@@ -42,67 +42,67 @@ var self = module.exports = {};
  * @return {Promise|object} Returns a promise that resolves to an object with various data about the image
  */
 module.exports.setup = function( url ) {
-	return new Promise( function( resolve, reject ) {
-		// Remove preceeding slash
-		url = url.replace(/^\/+/g, '');
-		const originalURL = url;
+    return new Promise( function( resolve, reject ) {
+        // Remove preceeding slash
+        url = url.replace(/^\/+/g, '');
+        const originalURL = url;
 
-		let parts = originalURL.split( '?' );
-		let path = parts[0];
-		let querystring = parts[1];
-		let params = Helpers.queryStringToJSON( querystring );
-		let newQuerystring = Helpers.JSONToQueryString( params );
-		newQuerystring = Helpers.sanitizeQueryString( newQuerystring );
+        let parts = originalURL.split( '?' );
+        let path = parts[0];
+        let querystring = parts[1];
+        let params = Helpers.queryStringToJSON( querystring );
+        let newQuerystring = Helpers.JSONToQueryString( params );
+        newQuerystring = Helpers.sanitizeQueryString( newQuerystring );
 
-		// Transform the path for how we store resized versions on S3
-		let newPath = 'resized/' + path;
-		let newURL = newPath + '_' + newQuerystring;
+        // Transform the path for how we store resized versions on S3
+        let newPath = 'resized/' + path;
+        let newURL = newPath + '_' + newQuerystring;
 
-		let returnObj = {
-			originalURL: originalURL,
-			path: path,
-			querystring: params,
-			S3Path: newPath,
-			S3Querystring: newQuerystring,
-			S3Key: newURL,
-		};
+        let returnObj = {
+            originalURL: originalURL,
+            path: path,
+            querystring: params,
+            S3Path: newPath,
+            S3Querystring: newQuerystring,
+            S3Key: newURL,
+        };
 
-		// Make sure we're dealing with a supported file extension
-		const originalExtension = path.split('.').pop().toLowerCase();
-		const allowedExtensions = [ 'jpg', 'jpeg', 'png', 'webp', 'gif' ];
-		if ( allowedExtensions.indexOf( originalExtension ) === -1 ) {
-			returnObj.code = 'invalid-extension';
-			returnObj.reason = originalExtension + ' is not an allowed file extension!';
-			return reject( returnObj );
-		}
+        // Make sure we're dealing with a supported file extension
+        const originalExtension = path.split('.').pop().toLowerCase();
+        const allowedExtensions = [ 'jpg', 'jpeg', 'png', 'webp', 'gif' ];
+        if ( allowedExtensions.indexOf( originalExtension ) === -1 ) {
+            returnObj.code = 'invalid-extension';
+            returnObj.reason = originalExtension + ' is not an allowed file extension!';
+            return reject( returnObj );
+        }
 
-		// Make sure one of the following query strings is provided, otherwise there is nothing to process
-		const allowedParams = [
-			'w',          // Reisze to a certain width
-			'h',          // Resize to a certain height
-			'resize',     // Center cropped to the exact size
-			'fit',        // Alias of resize
-			'quality',    // Adjust JPG quality
-			'crop',       // Extract a region of the image
-			'webp',       // Output in webp format
-			'rotate',     // Rotate image 0, 90, 180, 270 degrees
-			'flip',       // Flip the image vertically
-			'flop',       // Flip the image horizontally
-			'negative',   // Convert image to opposite colors
-			'grayscale',  // Convert image to black and white
-			'greyscale',  // Alias of grayscale
-			'lb',         // Letterbox an image at a certain size
-			'background'  // Background color of letterbox
-		];
-		let matchingKeys = Helpers.getIntersectingValues( Object.keys( params ), allowedParams );
-		if ( matchingKeys.length === 0 ) {
-			returnObj.code = 'invalid-query-string';
-			returnObj.reason = 'No valid query strings were used: ' + Object.keys( params );
-			return reject( returnObj );
-		}
+        // Make sure one of the following query strings is provided, otherwise there is nothing to process
+        const allowedParams = [
+            'w',          // Reisze to a certain width
+            'h',          // Resize to a certain height
+            'resize',     // Center cropped to the exact size
+            'fit',        // Alias of resize
+            'quality',    // Adjust JPG quality
+            'crop',       // Extract a region of the image
+            'webp',       // Output in webp format
+            'rotate',     // Rotate image 0, 90, 180, 270 degrees
+            'flip',       // Flip the image vertically
+            'flop',       // Flip the image horizontally
+            'negative',   // Convert image to opposite colors
+            'grayscale',  // Convert image to black and white
+            'greyscale',  // Alias of grayscale
+            'lb',         // Letterbox an image at a certain size
+            'background'  // Background color of letterbox
+        ];
+        let matchingKeys = Helpers.getIntersectingValues( Object.keys( params ), allowedParams );
+        if ( matchingKeys.length === 0 ) {
+            returnObj.code = 'invalid-query-string';
+            returnObj.reason = 'No valid query strings were used: ' + Object.keys( params );
+            return reject( returnObj );
+        }
 
-		return resolve( returnObj );
-	}); // end Promise
+        return resolve( returnObj );
+    }); // end Promise
 };
 
 /**
@@ -112,25 +112,25 @@ module.exports.setup = function( url ) {
  * @return {Promise|object} Returns a promise that resolves to an object with various data about the image
  */
 module.exports.checkIfCached = function( data ) {
-	console.log( 'checkIfCached' );
-	return new Promise(function( resolve, reject ) {
-		if ( ! ( 'S3Key' in data ) ) {
-			data.code = 'no-s3-key';
-			data.reason = 'No S3 Key was passed to checkIfCached';
-			return reject( data );
-		}
-		self.getFromS3( data.S3Key )
-			.then(function( s3Obj ) {
-				data.obj = s3Obj;
-				data.code ='found-on-s3';
-				// Sweet! We're done. End the Promise chain...
-				return reject( data )
-			})
-			.catch(function( err ) {
-				// Nothing in cache so keep going down the Promise chain...
-				return resolve( data );
-			});
-	}); // end Promise
+    console.log( 'checkIfCached' );
+    return new Promise(function( resolve, reject ) {
+        if ( ! ( 'S3Key' in data ) ) {
+            data.code = 'no-s3-key';
+            data.reason = 'No S3 Key was passed to checkIfCached';
+            return reject( data );
+        }
+        self.getFromS3( data.S3Key )
+            .then(function( s3Obj ) {
+                data.obj = s3Obj;
+                data.code ='found-on-s3';
+                // Sweet! We're done. End the Promise chain...
+                return reject( data )
+            })
+            .catch(function( err ) {
+                // Nothing in cache so keep going down the Promise chain...
+                return resolve( data );
+            });
+    }); // end Promise
 };
 
 /**
@@ -140,24 +140,24 @@ module.exports.checkIfCached = function( data ) {
  * @return {Promise|object} Returns a promise that resolves to an object with various data about the image
  */
 module.exports.getOriginal = function( data ) {
-	console.log( 'getOriginal' );
-	return new Promise(function( resolve, reject ) {
-		if ( ! ( 'path' in data ) ) {
-			data.code = 'no-path';
-			data.reason = 'No path was passed to getOriginal';
-			return reject( data );
-		}
-		self.getFromS3( data.path )
-			.then(function( s3Obj ) {
-				data.obj = s3Obj;
-				return resolve( data );
-			})
-			.catch(function( err ) {
-				// The original image wasn't found on S3
-				data.code ='original-not-found-from-s3';
-				return reject( data );
-			});
-	}); // end Promise
+    console.log( 'getOriginal' );
+    return new Promise(function( resolve, reject ) {
+        if ( ! ( 'path' in data ) ) {
+            data.code = 'no-path';
+            data.reason = 'No path was passed to getOriginal';
+            return reject( data );
+        }
+        self.getFromS3( data.path )
+            .then(function( s3Obj ) {
+                data.obj = s3Obj;
+                return resolve( data );
+            })
+            .catch(function( err ) {
+                // The original image wasn't found on S3
+                data.code ='original-not-found-from-s3';
+                return reject( data );
+            });
+    }); // end Promise
 };
 
 /**
@@ -167,26 +167,26 @@ module.exports.getOriginal = function( data ) {
  * @return {Promise|object} Returns a promise that resolves to an object with various data about the image
  */
 module.exports.cacheProcessedImage = function( data ) {
-	console.log( 'cacheProcessedImage' );
-	return new Promise(function( resolve, reject ) {
-		let args = {
-			key: data.S3Key,
-			body: data.obj.Body,
-			ContentType: data.obj.ContentType
-		};
-		self.putToS3( args )
-			.then(function(resp) {
-				data.code = 'cached-processed-image';
-				data.reason = 'The processed image was saved to S3';
-				resolve( data );
-			})
-			.catch(function( err ) {
-				data.code = 'processed-image-not-cached';
-				data.reason = 'The processed image couldn\'t be cached on S3';
-				console.log( err );
-				return reject( data );
-			});
-	} ); // end Promise
+    console.log( 'cacheProcessedImage' );
+    return new Promise(function( resolve, reject ) {
+        let args = {
+            key: data.S3Key,
+            body: data.obj.Body,
+            ContentType: data.obj.ContentType
+        };
+        self.putToS3( args )
+            .then(function(resp) {
+                data.code = 'cached-processed-image';
+                data.reason = 'The processed image was saved to S3';
+                resolve( data );
+            })
+            .catch(function( err ) {
+                data.code = 'processed-image-not-cached';
+                data.reason = 'The processed image couldn\'t be cached on S3';
+                console.log( err );
+                return reject( data );
+            });
+    } ); // end Promise
 };
 
 /**
@@ -196,13 +196,13 @@ module.exports.cacheProcessedImage = function( data ) {
  * @return {Promise|object} Returns a promise that resolves to data about the S3 file
  */
 module.exports.getFromS3 = function( key ) {
-	console.log( 'Get S3 Key: ', key );
-	return S3
-		.getObject( {
-			Bucket: config.bucket,
-			Key: key
-		} )
-		.promise();
+    console.log( 'Get S3 Key: ', key );
+    return S3
+        .getObject( {
+            Bucket: config.bucket,
+            Key: key
+        } )
+        .promise();
 };
 
 /**
@@ -212,19 +212,23 @@ module.exports.getFromS3 = function( key ) {
  * @return {Promise|object} Returns a promise that resolves to data about the S3 file
  */
 module.exports.putToS3 = function( args ) {
-	console.log( 'Put S3 Key: ', args.key );
-	let params = {
-		Bucket: config.bucket,
-		Key: args.key,
-		Body: args.body,
-		ACL: 'public-read'
-	};
-	if ( 'ContentType' in args ) {
-		params.ContentType = args.ContentType;
-	}
-	return S3
-		.putObject(params)
-		.promise();
+    console.log( 'Put S3 Key: ', args.key );
+    let expiry = new Date();
+    expiry.setFullYear(expiry.getFullYear() + 1);
+    let params = {
+        Bucket: config.bucket,
+        Key: args.key,
+        Body: args.body,
+        CacheControl: 'max-age=31536000',
+        Expires: expiry,
+        ACL: 'public-read'
+    };
+    if ( 'ContentType' in args ) {
+        params.ContentType = args.ContentType;
+    }
+    return S3
+        .putObject(params)
+        .promise();
 };
 
 /**
@@ -234,198 +238,198 @@ module.exports.putToS3 = function( args ) {
  * @return {Promise|object} Returns a promise that resolves to an object with various data about the image
  */
 module.exports.processImage = function( data ) {
-	console.log( 'processImage' );
-	let buffer = data.obj.Body;
-	let args = data.querystring;
+    console.log( 'processImage' );
+    let buffer = data.obj.Body;
+    let args = data.querystring;
 
-	return new Promise(function( resolve, reject ) {
-		var image = Sharp(buffer).withMetadata();
-		image.metadata(function( err, metadata ) {
-			// Auto rotate based on orientation exif data
-			let rotation = null;
-			if ( args.rotate ) {
-				rotation = Number( args.rotate );
-				if ( [ 0, 90, 180, 270 ].indexOf( rotation ) == -1 ) {
-					rotation = null;
-				}
-			}
-			image.rotate( rotation );
+    return new Promise(function( resolve, reject ) {
+        var image = Sharp(buffer).withMetadata();
+        image.metadata(function( err, metadata ) {
+            // Auto rotate based on orientation exif data
+            let rotation = null;
+            if ( args.rotate ) {
+                rotation = Number( args.rotate );
+                if ( [ 0, 90, 180, 270 ].indexOf( rotation ) == -1 ) {
+                    rotation = null;
+                }
+            }
+            image.rotate( rotation );
 
-			// Set content type
-			switch( metadata.format ) {
-				case 'jpg':
-				case 'jpeg':
-					data.obj.ContentType = 'image/jpeg';
-					break;
+            // Set content type
+            switch( metadata.format ) {
+                case 'jpg':
+                case 'jpeg':
+                    data.obj.ContentType = 'image/jpeg';
+                    break;
 
-				case 'png':
-					data.obj.ContentType = 'image/png';
-					break;
+                case 'png':
+                    data.obj.ContentType = 'image/png';
+                    break;
 
-				case 'gif':
-					data.obj.ContentType = 'image/gif';
-					break;
+                case 'gif':
+                    data.obj.ContentType = 'image/gif';
+                    break;
 
-				case 'webp':
-					data.obj.ContentType = 'image/webp';
-					break;
-			}
+                case 'webp':
+                    data.obj.ContentType = 'image/webp';
+                    break;
+            }
 
-			// Convert gifs to pngs unless animated
-			if ( metadata.format === 'gif' ) {
-				if ( isAnimated( buffer ) ) {
-					data.code = 'animated-gif';
-					data.reason = 'The image being processed is an animated gif (unprocessable)';
-					data.obj.Body = '';
-					return reject( data );
-				} else {
-					image.png();
-					data.obj.ContentType = 'image/png';
-				}
-			}
+            // Convert gifs to pngs unless animated
+            if ( metadata.format === 'gif' ) {
+                if ( isAnimated( buffer ) ) {
+                    data.code = 'animated-gif';
+                    data.reason = 'The image being processed is an animated gif (unprocessable)';
+                    data.obj.Body = '';
+                    return reject( data );
+                } else {
+                    image.png();
+                    data.obj.ContentType = 'image/png';
+                }
+            }
 
-			// Normalize dimensions
-			if ( args.w ) {
-				args.w = Math.min( args.w, metadata.width );
-			}
+            // Normalize dimensions
+            if ( args.w ) {
+                args.w = Math.min( args.w, metadata.width );
+            }
 
-			if ( args.h ) {
-				args.h = Math.min( args.h, metadata.height );
-			}
+            if ( args.h ) {
+                args.h = Math.min( args.h, metadata.height );
+            }
 
-			// Reverse the colors
-			if ( args.negative ) {
-				image.negate();
-			}
+            // Reverse the colors
+            if ( args.negative ) {
+                image.negate();
+            }
 
-			// Flip image vertically
-			if ( args.flip ) {
-				image.flip();
-			}
+            // Flip image vertically
+            if ( args.flip ) {
+                image.flip();
+            }
 
-			// Flip the image horizontally
-			if ( args.flop ) {
-				image.flop();
-			}
+            // Flip the image horizontally
+            if ( args.flop ) {
+                image.flop();
+            }
 
-			// Convert to black and white
-			if ( args.grayscale || args.greyscale ) {
-				image.grayscale();
-			}
+            // Convert to black and white
+            if ( args.grayscale || args.greyscale ) {
+                image.grayscale();
+            }
 
-			// Crop (assumes crop data from original)
-			if ( args.crop ) {
-				var cropValues = args.crop;
-				if ( typeof args.crop === 'string' ) {
-					cropValues = args.crop.split(',')
-				}
+            // Crop (assumes crop data from original)
+            if ( args.crop ) {
+                var cropValues = args.crop;
+                if ( typeof args.crop === 'string' ) {
+                    cropValues = args.crop.split(',')
+                }
 
-				// Convert percantages to px values
-				cropValues = cropValues.map( function(value, index) {
-					if ( value.indexOf('px') > -1 ) {
-						return Number( value.substr( 0, value.length - 2 ) );
-					} else {
-						return Number(
-							Number(
-								metadata[index % 2 ? 'height' : 'width'] *
-									(value / 100)
-							).toFixed(0)
-						);
-					}
-				});
+                // Convert percantages to px values
+                cropValues = cropValues.map( function(value, index) {
+                    if ( value.indexOf('px') > -1 ) {
+                        return Number( value.substr( 0, value.length - 2 ) );
+                    } else {
+                        return Number(
+                            Number(
+                                metadata[index % 2 ? 'height' : 'width'] *
+                                (value / 100)
+                            ).toFixed(0)
+                        );
+                    }
+                });
 
-				image.extract({
-					left: cropValues[0],
-					top: cropValues[1],
-					width: cropValues[2],
-					height: cropValues[3],
-				});
-			}
+                image.extract({
+                    left: cropValues[0],
+                    top: cropValues[1],
+                    width: cropValues[2],
+                    height: cropValues[3],
+                });
+            }
 
-			// Resize
-			if ( args.resize ) {
-				if ( typeof args.resize === 'string' ) {
-					args.resize = args.resize.split(',');
-				}
-				image.resize.apply(
-					image,
-					args.resize.map( function( v ) {
-						return Number( v ) || null;
-					} )
-				);
-			} else if ( args.fit ) {
-				if ( typeof args.fit === 'string' ) {
-					args.fit = args.fit.split(',');
-				}
-				image.resize.apply(
-					image,
-					args.fit.map( function( v ) {
-						return Number( v ) || null;
-					} )
-				);
-				image.max();
-			} else if ( args.lb ) {
-				if ( typeof args.lb === 'string' ) {
-					args.lb = args.lb.split(',');
-				}
-				image.resize.apply(
-					image,
-					args.lb.map( function( v ) {
-						return Number( v ) || null;
-					} )
-				);
+            // Resize
+            if ( args.resize ) {
+                if ( typeof args.resize === 'string' ) {
+                    args.resize = args.resize.split(',');
+                }
+                image.resize.apply(
+                    image,
+                    args.resize.map( function( v ) {
+                        return Number( v ) || null;
+                    } )
+                );
+            } else if ( args.fit ) {
+                if ( typeof args.fit === 'string' ) {
+                    args.fit = args.fit.split(',');
+                }
+                image.resize.apply(
+                    image,
+                    args.fit.map( function( v ) {
+                        return Number( v ) || null;
+                    } )
+                );
+                image.max();
+            } else if ( args.lb ) {
+                if ( typeof args.lb === 'string' ) {
+                    args.lb = args.lb.split(',');
+                }
+                image.resize.apply(
+                    image,
+                    args.lb.map( function( v ) {
+                        return Number( v ) || null;
+                    } )
+                );
 
-				// Default to a black background to replicate Photon API behaviour
-				// when no background color specified
-				if ( ! args.background ) {
-					args.background = 'black';
-				}
-				image.background( args.background );
-				image.embed();
-			} else if ( args.w || args.h ) {
-				image.resize(
-					Number( args.w ) || null,
-					Number( args.h ) || null
-				);
-				if ( ! args.crop ) {
-					image.max();
-				}
-			}
+                // Default to a black background to replicate Photon API behaviour
+                // when no background color specified
+                if ( ! args.background ) {
+                    args.background = 'black';
+                }
+                image.background( args.background );
+                image.embed();
+            } else if ( args.w || args.h ) {
+                image.resize(
+                    Number( args.w ) || null,
+                    Number( args.h ) || null
+                );
+                if ( ! args.crop ) {
+                    image.max();
+                }
+            }
 
-			// Allow override of compression quality
-			if ( args.webp ) {
-				image.webp( {
-					quality: args.quality
-						? Math.min(
-								Math.max( Number( args.quality ), 0 )
-							, 100 )
-						: 80,
-				} );
-				data.obj.ContentType = 'image/webp';
-			} else if ( metadata.format === 'jpeg' && args.quality ) {
-				image.jpeg( {
-					quality: Math.min(
-						Math.max( Number( args.quality ), 0 ),
-						100
-					),
-				} );
-			}
+            // Allow override of compression quality
+            if ( args.webp ) {
+                image.webp( {
+                    quality: args.quality
+                        ? Math.min(
+                            Math.max( Number( args.quality ), 0 )
+                            , 100 )
+                        : 80,
+                } );
+                data.obj.ContentType = 'image/webp';
+            } else if ( metadata.format === 'jpeg' && args.quality ) {
+                image.jpeg( {
+                    quality: Math.min(
+                        Math.max( Number( args.quality ), 0 ),
+                        100
+                    ),
+                } );
+            }
 
-			// Save the image out
-			image.toBuffer(function(err, img) {
-				if ( err ) {
-					data.code = 'error-processing-image';
-					data.reason = err;
-					return reject( data );
-				}
+            // Save the image out
+            image.toBuffer(function(err, img) {
+                if ( err ) {
+                    data.code = 'error-processing-image';
+                    data.reason = err;
+                    return reject( data );
+                }
 
-				data.code = 'processed-image';
-				data.obj.Body = img;
-				if ( typeof img === 'Buffer' ) {
-					data.obj.ContentLength = Buffer.byteLength( img );
-				}
-				return resolve( data );
-			});
-		} );
-	}); // end Promise
+                data.code = 'processed-image';
+                data.obj.Body = img;
+                if ( typeof img === 'Buffer' ) {
+                    data.obj.ContentLength = Buffer.byteLength( img );
+                }
+                return resolve( data );
+            });
+        } );
+    }); // end Promise
 };

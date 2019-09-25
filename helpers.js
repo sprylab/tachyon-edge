@@ -8,7 +8,7 @@ module.exports = {};
  */
 module.exports.sanitizeQueryString = function( str ) {
 	str = decodeURIComponent( str );
-	return encodeURIComponent( str.replace(/[=,&|]/g,'-' ) );
+	return encodeURIComponent( str.replace(/[=,&|]/g,'-' ).replace(/\s/g, '_') );
 };
 
 /**
