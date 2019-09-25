@@ -22,12 +22,6 @@ if (configPath) {
     config = JSON.parse(fs.readFileSync(configPath));
     AWS.config.loadFromPath(configPath);
 }
-if (process.env.region) {
-    config.region = process.env.region;
-}
-if (process.env.bucket) {
-    config.bucket = process.env.bucket;
-}
 const S3 = new AWS.S3({
         signatureVersion: 'v4',
     }),
@@ -53,10 +47,30 @@ module.exports.setup = function (url) {
         url = url.replace(/^\/+/g, '');
         const originalURL = url;
 
+        // Make sure one of the following query strings is provided, otherwise there is nothing to process
+        const allowedParams = [
+            'w',          // Reisze to a certain width
+            'h',          // Resize to a certain height
+            'resize',     // Center cropped to the exact size
+            'fit',        // Alias of resize
+            'quality',    // Adjust JPG quality
+            'crop',       // Extract a region of the image
+            'webp',       // Output in webp format
+            'rotate',     // Rotate image 0, 90, 180, 270 degrees
+            'flip',       // Flip the image vertically
+            'flop',       // Flip the image horizontally
+            'negative',   // Convert image to opposite colors
+            'grayscale',  // Convert image to black and white
+            'greyscale',  // Alias of grayscale
+            'lb',         // Letterbox an image at a certain size
+            'background'  // Background color of letterbox
+        ];
+
         let parts = originalURL.split('?');
         let path = parts[0];
         let querystring = parts[1];
         let params = Helpers.queryStringToJSON(querystring);
+        params = Helpers.filterQueryParams(params, allowedParams);
         let newQuerystring = Helpers.JSONToQueryString(params);
         newQuerystring = Helpers.sanitizeQueryString(newQuerystring);
 
@@ -82,24 +96,7 @@ module.exports.setup = function (url) {
             return reject(returnObj);
         }
 
-        // Make sure one of the following query strings is provided, otherwise there is nothing to process
-        const allowedParams = [
-            'w',          // Reisze to a certain width
-            'h',          // Resize to a certain height
-            'resize',     // Center cropped to the exact size
-            'fit',        // Alias of resize
-            'quality',    // Adjust JPG quality
-            'crop',       // Extract a region of the image
-            'webp',       // Output in webp format
-            'rotate',     // Rotate image 0, 90, 180, 270 degrees
-            'flip',       // Flip the image vertically
-            'flop',       // Flip the image horizontally
-            'negative',   // Convert image to opposite colors
-            'grayscale',  // Convert image to black and white
-            'greyscale',  // Alias of grayscale
-            'lb',         // Letterbox an image at a certain size
-            'background'  // Background color of letterbox
-        ];
+
         let matchingKeys = Helpers.getIntersectingValues(Object.keys(params), allowedParams);
         if (matchingKeys.length === 0) {
             returnObj.code = 'invalid-query-string';

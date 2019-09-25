@@ -84,3 +84,19 @@ module.exports.getFileExtension = function( str ) {
 	str = str.split('.').pop();
 	return str.toLowerCase();
 };
+
+/**
+ * Filter a map of parameters to only contain
+ * the parameter keys given in an array of allowed parameter keys
+ *
+ * @param params {object} 		Parameter key value map to be filtered
+ * @param allowedParams {array} List of allowed parameter keys
+ */
+module.exports.filterQueryParams = function(params, allowedParams) {
+	return allowedParams.reduce((result, param) => {
+		if (params[param]) {
+			result[param] = params[param];
+		}
+		return result;
+	}, {});
+};
