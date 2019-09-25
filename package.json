@@ -9,8 +9,9 @@
   "main": "tachyon.js",
   "scripts": {
     "build-docker": "docker build . -t tachyon-build",
-    "build-node-modules": "rm -R node_modules ; docker run -v `pwd`:/build -t tachyon-build",
-    "build-zip": "zip -r lambda.zip ./node_modules/ config.json tachyon.js helpers.js lambda-handler.js"
+    "build-node-modules": "rm -rf node_modules ; docker run -v `pwd`:/build -t tachyon-build",
+    "build-zip": "zip -r lambda.zip ./node_modules/ config.json tachyon.js helpers.js lambda-handler.js",
+    "build": "npm run build-docker && npm run build-node-modules && npm run build-zip"
   },
   "author": "Russell Heimlich",
   "license": "ISC",
